@@ -25,12 +25,15 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create pub-sub client: %v", err)
 	}
+	defer client.Close()
+
 	sub := client.Subscription(cfg.SubscriptionID)
 
 	store, err := storage.NewScanStore(ctx, cfg.Storage)
 	if err != nil {
 		log.Fatalf("failed to create scan storage: %v", err)
 	}
+	defer store.Close()
 
 	log.Println("processor started")
 
