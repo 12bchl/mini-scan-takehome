@@ -1,18 +1,18 @@
 package storage
 
 import (
-	"database/sql"
+	"context"
 
 	"github.com/censys/scan-takehome/internal/model"
 	_ "github.com/lib/pq"
 )
 
 type PostgresStore struct {
-	db *sql.DB
+	SQLScanStore
 }
 
-func NewPostgresScanStore(dsn string) (ScanStore, error) {
-	db, err := sql.Open("postgres", dsn)
+func NewPostgresScanStore(ctx context.Context, cfg Config) (ScanStore, error) {
+	store, err := cfg.newScanStore(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -27,15 +27,15 @@ func NewPostgresScanStore(dsn string) (ScanStore, error) {
 		PRIMARY KEY (ip, port, service)
 	);`
 
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := store.db.Exec(schema); err != nil {
 		return nil, err
 	}
 
-	return &PostgresStore{db: db}, nil
+	return &PostgresStore{store}, nil
 }
 
-func (p *PostgresStore) Upsert(scan model.ScanResult) error {
-	_, err := p.db.Exec(`
+func (p *PostgresStore) Upsert(ctx context.Context, scan model.ScanResult) error {
+	_, err := p.db.ExecContext(ctx, `
 		INSERT INTO scans (ip, port, service, timestamp, response)
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (ip, port, service)

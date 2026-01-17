@@ -8,17 +8,17 @@ import (
 )
 
 type ScanResult struct {
-	scanBase
+	ScanBase
 	Response string `json:"-"`
 }
 
 type scanRaw struct {
-	scanBase
+	ScanBase
 	DataVersion int             `json:"data_version"`
 	Data        json.RawMessage `json:"data"`
 }
 
-type scanBase struct {
+type ScanBase struct {
 	Ip        string `json:"ip"`
 	Port      uint32 `json:"port"`
 	Service   string `json:"service"`
@@ -31,7 +31,7 @@ func (s *ScanResult) UnmarshalJSON(b []byte) error {
 		return fmt.Errorf("unmarshal scan: %w", err)
 	}
 
-	s.scanBase = raw.scanBase
+	s.ScanBase = raw.ScanBase
 
 	switch raw.DataVersion {
 	case 1:
@@ -54,4 +54,15 @@ func (s *ScanResult) UnmarshalJSON(b []byte) error {
 	}
 
 	return nil
+}
+
+func (s ScanResult) String() string {
+	return fmt.Sprintf(
+		"ScanResult{ip=%s port=%d svc=%s ts=%d resp=%s}",
+		s.Ip,
+		s.Port,
+		s.Service,
+		s.Timestamp,
+		s.Response,
+	)
 }

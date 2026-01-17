@@ -4,6 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/censys/scan-takehome/internal/model"
 	"github.com/censys/scan-takehome/internal/storage"
@@ -13,41 +16,48 @@ import (
 
 func main() {
 	cfg := LoadConfig()
+	log.Printf("processor configured: %v", cfg)
 
-	ctx := context.Background()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
 	client, err := pubsub.NewClient(ctx, cfg.ProjectID)
 	if err != nil {
-		log.Fatal("Failed to create pub-sub client: ", err)
+		log.Fatalf("failed to create pub-sub client: %v", err)
 	}
 	sub := client.Subscription(cfg.SubscriptionID)
 
-	store, err := storage.NewScanStore("scans.db")
+	store, err := storage.NewScanStore(ctx, cfg.Storage)
 	if err != nil {
-		log.Fatal("Failed to create scan storage: ", err)
+		log.Fatalf("failed to create scan storage: %v", err)
 	}
 
-	log.Println("Processor started")
+	log.Println("processor started")
 
+	// TODO: abstract msg handling to support alternate message queues
 	err = sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
+		log.Printf("subscription received (%d bytes)", len(msg.Data))
+
 		var scan model.ScanResult
 		if err := json.Unmarshal(msg.Data, &scan); err != nil {
-			log.Println("Failed to parse scan result", "msg", string(msg.Data), "error", err)
-			msg.Ack()
+			log.Printf("failed to parse scan result: err=%v msg='%s'", err, string(msg.Data))
+			msg.Ack() // prevent retry
 			return
 		}
 
-		if err := store.Upsert(scan); err != nil {
-			log.Println("Failed to write to db", "msg", string(msg.Data), "error", err)
+		if err := store.Upsert(ctx, scan); err != nil {
+			log.Printf("failed to write to db: %v", err)
 			return
 		}
 
-		log.Println("Susbscription processed", "scan", scan)
-
+		// TODO: debug level logging
+		log.Printf("susbscription processed: %v", scan)
 		msg.Ack()
 	})
 
 	if err != nil {
-		log.Fatal("Failed to receive on subscription: ", err)
+		log.Fatalf("failed to receive on subscription: %v", err)
 	}
+
+	log.Println("processor stopped")
 }

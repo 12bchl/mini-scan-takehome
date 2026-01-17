@@ -3,11 +3,15 @@ package main
 import (
 	"flag"
 	"os"
+
+	"github.com/censys/scan-takehome/internal/storage"
 )
 
+// NOTE: could switch to urfave/cli in future
 type Config struct {
 	ProjectID      string
 	SubscriptionID string
+	Storage        storage.Config
 }
 
 func LoadConfig() Config {
@@ -26,6 +30,8 @@ func LoadConfig() Config {
 		getEnv("PUBSUB_SUBSCRIPTION_ID", "scan-sub"),
 		"GCP Subscription ID",
 	)
+
+	cfg.Storage = storage.LoadConfig()
 
 	flag.Parse()
 

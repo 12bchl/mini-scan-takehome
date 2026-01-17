@@ -1,25 +1,24 @@
 package storage
 
 import (
-	"database/sql"
+	"context"
 
 	"github.com/censys/scan-takehome/internal/model"
 	_ "github.com/mattn/go-sqlite3"
 )
 
 type SQLiteStore struct {
-	db *sql.DB
+	SQLScanStore
 }
 
-func NewSQLiteScanStore(path string) (ScanStore, error) {
-	db, err := sql.Open("sqlite3", path)
+func NewSQLiteScanStore(ctx context.Context, cfg Config) (ScanStore, error) {
+	store, err := cfg.newScanStore(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	db.Exec(`PRAGMA journal_mode=WAL;`) // enable concurrent reads on db
-
-	db.SetMaxOpenConns(1) // disable concurrent writes on client
+	store.db.Exec(`PRAGMA journal_mode=WAL;`) // enable concurrent reads on db
+	store.db.SetMaxOpenConns(1)               // disable concurrent writes on client
 
 	schema := `
     CREATE TABLE IF NOT EXISTS scans (
@@ -31,21 +30,22 @@ func NewSQLiteScanStore(path string) (ScanStore, error) {
         PRIMARY KEY (ip, port, service)
     );`
 
-	if _, err := db.Exec(schema); err != nil {
+	if _, err := store.db.Exec(schema); err != nil {
 		return nil, err
 	}
 
-	return &SQLiteStore{db: db}, nil
+	return &SQLiteStore{store}, nil
 }
 
-func (s *SQLiteStore) Upsert(scan model.ScanResult) error {
-	_, err := s.db.Exec(`
+func (s *SQLiteStore) Upsert(ctx context.Context, scan model.ScanResult) error {
+	_, err := s.db.ExecContext(ctx, `
         INSERT INTO scans (ip, port, service, timestamp, response)
         VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(ip, port, service) DO UPDATE SET
-            timestamp = excluded.timestamp,
-            response = excluded.response
-        WHERE excluded.timestamp > scans.timestamp
+        ON CONFLICT(ip, port, service)
+				DO UPDATE SET
+            timestamp = EXCLUDED.timestamp,
+            response = EXCLUDED.response
+        WHERE EXCLUDED.timestamp > scans.timestamp
     `,
 		scan.Ip,
 		scan.Port,
