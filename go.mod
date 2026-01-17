@@ -2,7 +2,11 @@ module github.com/censys/scan-takehome
 
 go 1.20
 
-require cloud.google.com/go/pubsub v1.33.0
+require (
+	cloud.google.com/go/pubsub v1.33.0
+	github.com/lib/pq v1.10.9
+	github.com/mattn/go-sqlite3 v1.14.33
+)
 
 require (
 	cloud.google.com/go v0.110.2 // indirect
