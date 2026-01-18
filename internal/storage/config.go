@@ -22,14 +22,16 @@ func LoadConfig() Config {
 	flag.StringVar(
 		&cfg.Driver,
 		"driver",
-		getEnv("STORAGE_SQL_DRIVER", "sqlite3"),
+		getEnv("STORAGE_SQL_DRIVER", "postgres"),
+		// getEnv("STORAGE_SQL_DRIVER", "sqlite3"),
 		"SQL Driver",
 	)
 
 	flag.StringVar(
 		&cfg.DSN,
 		"dsn",
-		getEnv("STORAGE_SQL_DSN", "scans.db"),
+		getEnv("STORAGE_SQL_DSN", "postgres://scans_user:scans_pass@postgres:5432/scans?sslmode=disable"),
+		// getEnv("STORAGE_SQL_DSN", "scans.db"),
 		"SQL Data Source",
 	)
 

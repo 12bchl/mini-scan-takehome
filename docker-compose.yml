@@ -50,6 +50,26 @@ services:
       PUBSUB_EMULATOR_HOST: pubsub:8085
       PUBSUB_PROJECT_ID: test-project
       PUBSUB_SUBSCRIPTION_ID: scan-sub
+      STORAGE_SQL_DRIVER: postgres
+      STORAGE_SQL_DSN: postgres://scans_user:scans_pass@postgres:5432/scans?sslmode=disable
     build:
       context: .
       dockerfile: ./cmd/processor/Dockerfile
+
+  # Runs postgres database
+  postgres:
+    image: postgres:16
+    container_name: scan-postgres
+    environment:
+      POSTGRES_DB: scans
+      POSTGRES_USER: scans_user
+      POSTGRES_PASSWORD: scans_pass
+    ports:
+      - "5432:5432"
+    # volumes:
+    #   - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scans_user -d scans"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
