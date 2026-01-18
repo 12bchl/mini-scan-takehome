@@ -11,14 +11,16 @@ type SQLiteStore struct {
 	SQLScanStore
 }
 
-func NewSQLiteScanStore(ctx context.Context, cfg Config) (ScanStore, error) {
-	store, err := cfg.newScanStore(ctx)
-	if err != nil {
-		return nil, err
+func (st *SQLiteStore) Connect(ctx context.Context) error {
+	if err := st.SQLScanStore.Connect(ctx); err != nil {
+		return err
 	}
+	return st.init(ctx)
+}
 
-	store.db.Exec(`PRAGMA journal_mode=WAL;`) // enable concurrent reads on db
-	store.db.SetMaxOpenConns(1)               // disable concurrent writes on client
+func (st *SQLiteStore) init(ctx context.Context) error {
+	st.db.SetMaxOpenConns(1)                                  // disable concurrent writes on client
+	_, _ = st.db.ExecContext(ctx, `PRAGMA journal_mode=WAL;`) // enable concurrent reads on db
 
 	schema := `
     CREATE TABLE IF NOT EXISTS scans (
@@ -30,15 +32,12 @@ func NewSQLiteScanStore(ctx context.Context, cfg Config) (ScanStore, error) {
         PRIMARY KEY (ip, port, service)
     );`
 
-	if _, err := store.db.Exec(schema); err != nil {
-		return nil, err
-	}
-
-	return &SQLiteStore{store}, nil
+	_, err := st.db.ExecContext(ctx, schema)
+	return err
 }
 
-func (s *SQLiteStore) Upsert(ctx context.Context, scan model.ScanResult) error {
-	_, err := s.db.ExecContext(ctx, `
+func (st *SQLiteStore) Upsert(ctx context.Context, scan model.ScanResult) error {
+	_, err := st.db.ExecContext(ctx, `
         INSERT INTO scans (ip, port, service, timestamp, response)
         VALUES (?, ?, ?, ?, ?)
         ON CONFLICT(ip, port, service)

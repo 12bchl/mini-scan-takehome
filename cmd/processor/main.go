@@ -29,11 +29,15 @@ func main() {
 
 	sub := client.Subscription(cfg.SubscriptionID)
 
-	store, err := storage.NewScanStore(ctx, cfg.Storage)
+	store, err := storage.NewScanStore(cfg.Storage)
 	if err != nil {
 		log.Fatalf("failed to create scan storage: %v", err)
 	}
 	defer store.Close()
+
+	if err := store.Connect(ctx); err != nil {
+		log.Fatalf("failed to connect storage: %v", err)
+	}
 
 	log.Println("processor started")
 

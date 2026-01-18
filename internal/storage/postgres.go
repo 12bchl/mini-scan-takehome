@@ -11,12 +11,15 @@ type PostgresStore struct {
 	SQLScanStore
 }
 
-func NewPostgresScanStore(ctx context.Context, cfg Config) (ScanStore, error) {
-	store, err := cfg.newScanStore(ctx)
-	if err != nil {
-		return nil, err
+func (st *PostgresStore) Connect(ctx context.Context) error {
+	if err := st.SQLScanStore.Connect(ctx); err != nil {
+		return err
 	}
+	return st.init(ctx)
+}
 
+func (st *PostgresStore) init(ctx context.Context) error {
+	// TODO: schema validation if table already exists
 	schema := `
 	CREATE TABLE IF NOT EXISTS scans (
 		ip TEXT NOT NULL,
@@ -27,15 +30,12 @@ func NewPostgresScanStore(ctx context.Context, cfg Config) (ScanStore, error) {
 		PRIMARY KEY (ip, port, service)
 	);`
 
-	if _, err := store.db.Exec(schema); err != nil {
-		return nil, err
-	}
-
-	return &PostgresStore{store}, nil
+	_, err := st.db.ExecContext(ctx, schema)
+	return err
 }
 
-func (p *PostgresStore) Upsert(ctx context.Context, scan model.ScanResult) error {
-	_, err := p.db.ExecContext(ctx, `
+func (st *PostgresStore) Upsert(ctx context.Context, scan model.ScanResult) error {
+	_, err := st.db.ExecContext(ctx, `
 		INSERT INTO scans (ip, port, service, timestamp, response)
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (ip, port, service)

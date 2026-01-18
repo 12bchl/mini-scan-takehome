@@ -21,9 +21,13 @@ func newTestSQLiteStore(t *testing.T) (*SQLiteStore, *sql.DB) {
 		Table:  "scans",
 	}
 
-	storeIface, err := NewSQLiteScanStore(ctx, cfg)
+	storeIface, err := NewScanStore(cfg)
 	if err != nil {
-		t.Fatalf("failed to create sqlite store: %v", err)
+		t.Fatalf("failed to create store: %v", err)
+	}
+
+	if err = storeIface.Connect(ctx); err != nil {
+		t.Fatalf("failed to connect to store: %v", err)
 	}
 
 	store := storeIface.(*SQLiteStore)
